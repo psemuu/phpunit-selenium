@@ -1119,12 +1119,12 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
 
         // throw a new exception of the same class as the initial one, but with a modified message
         if ($this->captureScreenshotOnFailure) {
+            $exceptionClass = get_class($e);
             if ($e instanceof PHPUnit_Framework_ExpectationFailedException) {
                 throw new PHPUnit_Framework_ExpectationFailedException($buffer, $e->getComparisonFailure(), $e);
             } elseif ($e instanceof PHPUnit_Framework_Error) {
-                throw new PHPUnit_Framework_Error($buffer, $e->getCode(), $e->getFile(), $e->getLine(), $e);
+                throw new $exceptionClass($buffer, $e->getCode(), $e->getFile(), $e->getLine(), $e);
             } else {
-                $exceptionClass = get_class($e);
                 throw new $exceptionClass($buffer, $e->getCode(), $e);
             }
         }
