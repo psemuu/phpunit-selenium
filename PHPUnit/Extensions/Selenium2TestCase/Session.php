@@ -54,18 +54,8 @@
  * @since      Class available since Release 1.2.0
  */
 class PHPUnit_Extensions_Selenium2TestCase_Session
+    extends PHPUnit_Extensions_Selenium2TestCase_CommandsHolder
 {
-    /**
-     * @var PHPUnit_Extensions_Selenium2TestCase_Driver
-     */
-    private $driver;
-
-    /**
-     * <code>localhost:80/.../session/42</code>
-     * @var string  the session URL in Selenium 2 API
-     */
-    private $sessionUrl;
-
     /**
      * @var string  the base URL for this session,
      *              which all relative URLs will refer to
@@ -73,20 +63,35 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
     private $baseUrl;
 
     public function __construct($driver,
-                                PHPUnit_Extensions_Selenium2TestCase_URL $sessionUrl,
+                                PHPUnit_Extensions_Selenium2TestCase_URL $url,
                                 PHPUnit_Extensions_Selenium2TestCase_URL $baseUrl)
     {
-        $this->driver = $driver;
-        $this->sessionUrl = $sessionUrl;
         $this->baseUrl = $baseUrl;
-        $this->commandFactories = array(
-            'acceptAlert' => $this->factoryMethod('PHPUnit_Extensions_Selenium2TestCase_SessionCommand_AcceptAlert'),
-            'alertText' => $this->factoryMethod('PHPUnit_Extensions_Selenium2TestCase_SessionCommand_GenericAccessor'),
-            'dismissAlert' => $this->factoryMethod('PHPUnit_Extensions_Selenium2TestCase_SessionCommand_DismissAlert'),
-            'title' => $this->factoryMethod('PHPUnit_Extensions_Selenium2TestCase_SessionCommand_GenericAccessor'),
+        parent::__construct($driver, $url);
+    }
+
+    protected function initCommands()
+    {
+        $baseUrl = $this->baseUrl;
+        return array(
+            'acceptAlert' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_AcceptAlert',
+            'alertText' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_AlertText',
+            'back' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
+            'dismissAlert' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_DismissAlert',
+            'execute' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
+            'executeAsync' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
+            'forward' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
+            'frame' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Frame',
+            'refresh' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
+            'screenshot' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
+            'source' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_GenericAccessor',
+            'title' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_GenericAccessor',
             'url' => function ($jsonParameters, $commandUrl) use ($baseUrl) {
                 return new PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Url($jsonParameters, $commandUrl, $baseUrl);
-            }
+            },
+            'window' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Window',
+            'windowHandle' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_GenericAccessor',
+            'windowHandles' => 'PHPUnit_Extensions_Selenium2TestCase_SessionCommand_GenericAccessor'
         );
     }
 
@@ -112,50 +117,16 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
      */
     public function getSessionUrl()
     {
-        return $this->sessionUrl;
-    }
-
-    public function stop()
-    {
-        $this->driver->curl('DELETE', $this->sessionUrl);
-    }
-
-    public function __call($commandName, $arguments)
-    {
-        $jsonParameters = $this->extractJsonParameters($arguments);
-        $response = $this->driver->execute($this->newCommand($commandName, $jsonParameters));
-        return $response->getValue();
-    }
-
-    private function extractJsonParameters($arguments)
-    {
-        $this->checkArguments($arguments);
-
-        if (count($arguments) == 0) {
-            return NULL;
-        }
-        return $arguments[0];
-    }
-
-    private function checkArguments($arguments)
-    {
-        if (count($arguments) > 1) {
-            throw new Exception('You cannot call a command with multiple method arguments.');
-        }
+        return $this->url;
     }
 
     /**
-     * @return string
+     * Closed the browser.
+     * @return void
      */
-    private function newCommand($commandName, $arguments)
+    public function stop()
     {
-        if (isset($this->commandFactories[$commandName])) {
-            $factoryMethod = $this->commandFactories[$commandName];
-            $commandUrl = $this->sessionUrl->addCommand($commandName);
-            $commandObject = $factoryMethod($arguments, $commandUrl);
-            return $commandObject;
-        }
-        throw new BadMethodCallException("The command '$commandName' is not existent or not supported.");
+        $this->driver->curl('DELETE', $this->url);
     }
 
     /**
@@ -228,11 +199,25 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
     public function element(PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $jsonParameters)
     {
         $response = $this->driver->curl('POST',
-                                        $this->sessionUrl->descend('element'),
+                                        $this->url->descend('element'),
                                         $jsonParameters->getArrayCopy());
         $value = $response->getValue();
-        $url = $this->sessionUrl->descend('element')->descend($value['ELEMENT']);
-        return new PHPUnit_Extensions_Selenium2TestCase_Element($this->driver, $url);
+        return PHPUnit_Extensions_Selenium2TestCase_Element::fromResponseValue($value,
+                                                                               $this->url->descend('element'),
+                                                                               $this->driver);
+    }
+
+    /**
+     * @return array    instances of PHPUnit_Extensions_Selenium2TestCase_Element
+     */
+    public function elements(PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $criteria)
+    {
+        $values = $this->postCommand('elements', $criteria);
+        $elements = array();
+        foreach ($values as $value) {
+            $elements[] = PHPUnit_Extensions_Selenium2TestCase_Element::fromResponseValue($value, $this->url->descend('element'), $this->driver);
+        }
+        return $elements;
     }
 
     /**
@@ -252,4 +237,34 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
         return $this->element($this->using('id')->value($id))->click();
     }
 
+    public function timeouts()
+    {
+        return new PHPUnit_Extensions_Selenium2TestCase_Session_Timeouts($this->driver,
+                                                                         $this->url->descend('timeouts'));
+    }
+
+    /**
+     * @return string   a BLOB of a PNG file
+     */
+    public function currentScreenshot()
+    {
+        return base64_decode($this->screenshot());
+    }
+
+    /**
+     * @return PHPUnit_Extensions_Selenium2TestCase_Window
+     */
+    public function currentWindow()
+    {
+        $url = $this->url->descend('window')->descend($this->windowHandle());
+        return new PHPUnit_Extensions_Selenium2TestCase_Window($this->driver, $url);
+    }
+
+    private function postCommand($name, PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $criteria)
+    {
+        $response = $this->driver->curl('POST',
+                                        $this->url->addCommand($name),
+                                        $criteria->getArrayCopy());
+        return $response->getValue();
+    }
 }

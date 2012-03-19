@@ -2,7 +2,7 @@
 /**
  * PHPUnit
  *
- * Copyright (c) 2010-2011, Sebastian Bergmann <sb@sebastian-bergmann.de>.
+ * Copyright (c) 2010-2012, Sebastian Bergmann <sb@sebastian-bergmann.de>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,86 +36,43 @@
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
- * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.2.4
  */
 
 /**
- * URL Value Object allowing easy concatenation.
+ * Tests for PHPUnit_Extensions_SeleniumTestCase.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
- * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.4
  */
-final class PHPUnit_Extensions_Selenium2TestCase_URL
+class Extensions_SeleniumTestCaseMultipleBrowsersTest extends PHPUnit_Extensions_SeleniumTestCase
 {
-    /**
-     * @var string
-     */
-    private $value;
+    public static $browsers = array(
+        array(
+            'name'    => 'Firefox on Linux',
+            'browser' => '*firefox',
+            'host'    => 'localhost',
+            'port'    => 4444
+        )
+    );
 
-    public function __construct($value)
+    public function setUp()
     {
-        $this->value = $value;
+        $this->setBrowserUrl('http://localhost:8080/');
     }
 
-    /**
-     * @return string
-     */
-    public function getValue()
+    public function testSessionIsLaunchedCorrectly()
     {
-        return $this->value;
-    }
-
-    public function __toString()
-    {
-        return $this->getValue();
-    }
-
-    public function descend($addition)
-    {
-        $newValue = rtrim($this->value, '/')
-                  . '/'
-                  . ltrim($addition, '/');
-        return new self($newValue);
-    }
-
-    public function ascend()
-    {
-        $lastSlash = strrpos($this->value, "/");
-        $newValue = substr($this->value, 0, $lastSlash);
-        return new self($newValue);
-    }
-
-    /**
-     * @return string
-     */
-    public function lastSegment()
-    {
-        $segments = explode('/', $this->value);
-        return end($segments);
-    }
-
-    public function addCommand($command)
-    {
-        return $this->descend($this->camelCaseToUnderScores($command));
-    }
-
-    private function camelCaseToUnderScores($string)
-    {
-        $string = preg_replace('/([A-Z]{1,1})/', ' \1', $string);
-        $string = strtolower($string);
-        return str_replace(' ', '_', $string);
-    }
-
-    public static function fromHostAndPort($host, $port)
-    {
-        return new self("http://{$host}:{$port}");
+        $this->open('html/test_open.html');
+        $this->assertStringEndsWith('html/test_open.html', $this->getLocation());
+        $this->assertEquals('This is a test of the open command.', $this->getBodyText());
     }
 }

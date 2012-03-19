@@ -2,7 +2,7 @@
 /**
  * PHPUnit
  *
- * Copyright (c) 2010-2011, Sebastian Bergmann <sb@sebastian-bergmann.de>.
+ * Copyright (c) 2010-2012, Sebastian Bergmann <sb@sebastian-bergmann.de>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,86 +36,38 @@
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
- * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.2.4
  */
 
 /**
- * URL Value Object allowing easy concatenation.
+ * Manages timeouts for the current browser session.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
- * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.4
  */
-final class PHPUnit_Extensions_Selenium2TestCase_URL
+class PHPUnit_Extensions_Selenium2TestCase_Session_Timeouts
+    extends PHPUnit_Extensions_Selenium2TestCase_CommandsHolder
 {
-    /**
-     * @var string
-     */
-    private $value;
-
-    public function __construct($value)
+    protected function initCommands()
     {
-        $this->value = $value;
-    }
+        return array(
+            'implicitWait' => function ($parameter, $commandUrl) {
+                $jsonParameters = array('ms' => $parameter);
+                return new PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost($jsonParameters, $commandUrl);
+            },
+            'asyncScript' => function ($parameter, $commandUrl) {
+                $jsonParameters = array('ms' => $parameter);
+                return new PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost($jsonParameters, $commandUrl);
+            },
 
-    /**
-     * @return string
-     */
-    public function getValue()
-    {
-        return $this->value;
-    }
-
-    public function __toString()
-    {
-        return $this->getValue();
-    }
-
-    public function descend($addition)
-    {
-        $newValue = rtrim($this->value, '/')
-                  . '/'
-                  . ltrim($addition, '/');
-        return new self($newValue);
-    }
-
-    public function ascend()
-    {
-        $lastSlash = strrpos($this->value, "/");
-        $newValue = substr($this->value, 0, $lastSlash);
-        return new self($newValue);
-    }
-
-    /**
-     * @return string
-     */
-    public function lastSegment()
-    {
-        $segments = explode('/', $this->value);
-        return end($segments);
-    }
-
-    public function addCommand($command)
-    {
-        return $this->descend($this->camelCaseToUnderScores($command));
-    }
-
-    private function camelCaseToUnderScores($string)
-    {
-        $string = preg_replace('/([A-Z]{1,1})/', ' \1', $string);
-        $string = strtolower($string);
-        return str_replace(' ', '_', $string);
-    }
-
-    public static function fromHostAndPort($host, $port)
-    {
-        return new self("http://{$host}:{$port}");
+        );
     }
 }

@@ -364,10 +364,15 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
      * @param  array  $browser
      * @throws InvalidArgumentException
      */
-    public function __construct($name = NULL, array $data = array(), $dataName = '', array $browser = array())
+    public function __construct($name = NULL, array $data = array(), $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
         $this->testId = md5(uniqid(rand(), TRUE));
+        $this->getDriver(array());
+    }
+
+    public function setupSpecificBrowser(array $browser)
+    {
         $this->getDriver($browser);
     }
 
@@ -440,6 +445,7 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
 
                         $test = PHPUnit_Framework_TestSuite::createTest($class, $name);
                         if ($test instanceof PHPUnit_Framework_TestCase) {
+                            $test->setupSpecificBrowser($browser);
                             $groups = PHPUnit_Util_Test::getGroups($className, $name);
                             self::addConfiguredTestTo($browserSuite, $test, $groups);
                         } else {
@@ -590,15 +596,15 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
         $driver->setTestCase($this);
         $driver->setTestId($this->testId);
 
-        $this->drivers[] = $driver;
+        $this->drivers[0] = $driver;
 
         return $driver;
     }
 
     public function skipWithNoServerRunning()
     {
-        $serverRunning = @fsockopen($this->drivers[0]->getHost(), $this->drivers[0]->getPort(), $errno, $errstr, $this->serverConnectionTimeOut);
-        if (!$serverRunning) {
+        $this->serverRunning = @fsockopen($this->drivers[0]->getHost(), $this->drivers[0]->getPort(), $errno, $errstr, $this->serverConnectionTimeOut);
+        if (!$this->serverRunning) {
             $this->markTestSkipped(
               sprintf(
                 'Could not connect to the Selenium Server on %s:%d.',
@@ -614,6 +620,10 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
      */
     protected function prepareTestSession()
     {
+        $testCaseClass = get_class($this);
+        if ($testCaseClass::$browsers) {
+            return $this->start();
+        }
         if (self::$shareSession && self::$sessionId !== NULL) {
             $this->setSessionId(self::$sessionId);
             $this->selectWindow('null');
@@ -1035,6 +1045,10 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
      */
     protected function onNotSuccessfulTest(Exception $e)
     {
+        if (!$this->serverRunning) {
+            throw $e;
+        }
+
         $this->restoreSessionStateAfterFailedTest();
 
         $buffer  = 'Current URL: ' . $this->drivers[0]->getLocation() .

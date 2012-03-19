@@ -39,11 +39,11 @@
  * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.2.4
  */
 
 /**
- * URL Value Object allowing easy concatenation.
+ * Retrieves the value of a CSS property.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
@@ -51,71 +51,23 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.4
  */
-final class PHPUnit_Extensions_Selenium2TestCase_URL
+class PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Css
+    extends PHPUnit_Extensions_Selenium2TestCase_Command
 {
     /**
-     * @var string
+     * @param array $propertyName
      */
-    private $value;
-
-    public function __construct($value)
+    public function __construct($propertyName,
+                                PHPUnit_Extensions_Selenium2TestCase_URL $cssResourceBaseUrl)
     {
-        $this->value = $value;
+        $this->jsonParameters = array();
+        $this->url = $cssResourceBaseUrl->descend($propertyName);
     }
 
-    /**
-     * @return string
-     */
-    public function getValue()
+    public function httpMethod()
     {
-        return $this->value;
-    }
-
-    public function __toString()
-    {
-        return $this->getValue();
-    }
-
-    public function descend($addition)
-    {
-        $newValue = rtrim($this->value, '/')
-                  . '/'
-                  . ltrim($addition, '/');
-        return new self($newValue);
-    }
-
-    public function ascend()
-    {
-        $lastSlash = strrpos($this->value, "/");
-        $newValue = substr($this->value, 0, $lastSlash);
-        return new self($newValue);
-    }
-
-    /**
-     * @return string
-     */
-    public function lastSegment()
-    {
-        $segments = explode('/', $this->value);
-        return end($segments);
-    }
-
-    public function addCommand($command)
-    {
-        return $this->descend($this->camelCaseToUnderScores($command));
-    }
-
-    private function camelCaseToUnderScores($string)
-    {
-        $string = preg_replace('/([A-Z]{1,1})/', ' \1', $string);
-        $string = strtolower($string);
-        return str_replace(' ', '_', $string);
-    }
-
-    public static function fromHostAndPort($host, $port)
-    {
-        return new self("http://{$host}:{$port}");
+        return 'GET';
     }
 }

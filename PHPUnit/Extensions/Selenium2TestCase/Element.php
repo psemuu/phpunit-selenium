@@ -52,12 +52,23 @@
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
  * @since      Class available since Release 1.2.0
- * @method void click()
+ * @method string attribute($name) Retrieves an element's attribute
+ * @method void clear() Empties the content of a form element.
+ * @method void click() 
+ * @method string css($propertyName) Retrieves the value of a CSS property
+ * @method bool displayed() Checks an element's visibility
+ * @method bool enabled() Checks a form element's state
+ * @method bool equals(PHPUnit_Extensions_Selenium2TestCase_Element $another) Checks if the two elements are the same on the page
+ * @method array location() Retrieves the element's position in the page: keys 'x' and 'y' in the returned array
+ * @method string name() Retrieves the tag name
  * @method bool selected() Checks the state of an option or other form element
+ * @method array size() Retrieves the dimensions of the element: 'width' and 'height' of the returned array
+ * @method void submit() Submits a form; can be called on its children
  * @method string value($newValue = NULL) Get or set value of form elements
  * @method string text() Get content of ordinary elements
  */
 class PHPUnit_Extensions_Selenium2TestCase_Element
+    extends PHPUnit_Extensions_Selenium2TestCase_CommandsHolder
 {
     /**
      * @var PHPUnit_Extensions_Selenium2TestCase_Driver
@@ -80,11 +91,37 @@ class PHPUnit_Extensions_Selenium2TestCase_Element
     {
         $this->driver = $driver;
         $this->url = $url;
-        $this->commands = array(
+        $this->commands = $this->initCommands();
+    }
+
+    /**
+     * @return integer
+     */
+    public function getId()
+    {
+        return $this->url->lastSegment();
+    }
+
+    /**
+     * @return array    class names
+     */
+    protected function initCommands()
+    {
+        return array(
+            'attribute' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Attribute',
+            'clear' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
             'click' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Click',
-            'value' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Value',
+            'css' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Css',
+            'displayed' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
+            'enabled' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
+            'equals' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Equals',
+            'location' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
+            'name' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
             'selected' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
-            'text' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor'
+            'size' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
+            'submit' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericPost',
+            'text' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_GenericAccessor',
+            'value' => 'PHPUnit_Extensions_Selenium2TestCase_ElementCommand_Value'
         );
     }
 
@@ -108,8 +145,7 @@ class PHPUnit_Extensions_Selenium2TestCase_Element
     public function element(PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $criteria)
     {
         $value = $this->postCommand('element', $criteria);
-        $newUrl = $this->url->ascend()->descend($value['ELEMENT']);
-        return new self($this->driver, $newUrl);
+        return self::fromResponseValue($value, $this->url->ascend(), $this->driver);
     }
 
     /**
@@ -120,10 +156,18 @@ class PHPUnit_Extensions_Selenium2TestCase_Element
         $values = $this->postCommand('elements', $criteria);
         $elements = array();
         foreach ($values as $value) {
-            $newUrl = $this->url->ascend()->descend($value['ELEMENT']);
-            $elements[] = new self($this->driver, $newUrl);
+            $elements[] = self::fromResponseValue($value, $this->url->ascend(), $this->driver);
         }
         return $elements;
+    }
+
+    public static function fromResponseValue(array $value, PHPUnit_Extensions_Selenium2TestCase_URL $parentFolder, PHPUnit_Extensions_Selenium2TestCase_Driver $driver)
+    {
+        if (!isset($value['ELEMENT'])) {
+            throw new InvalidArgumentException('Element not found.');
+        }
+        $url = $parentFolder->descend($value['ELEMENT']);
+        return new self($driver, $url);
     }
 
     /**

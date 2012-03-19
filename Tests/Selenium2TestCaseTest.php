@@ -83,6 +83,20 @@ class Extensions_Selenium2TestCaseTest extends PHPUnit_Extensions_Selenium2TestC
         $this->assertEquals('Click here for next page', $link->text());
     }
 
+    public function testMultipleElementsSelection()
+    {
+        $this->url('html/test_element_selection.html');
+        $elements = $this->elements($this->using('css selector')->value('div'));
+        $this->assertEquals(4, count($elements));
+        $this->assertEquals('Other div', $elements[0]->text());
+    }
+
+    public function testTheElementWithFocusCanBeInspected()
+    {
+        $this->markTestIncomplete('Which API to call session/1/element/active?');
+        $this->keys(array('value' => array())); // should send key strokes to the active element
+    }
+
     public function testElementsCanBeSelectedAsChildrenOfAlreadyFoundElements()
     {
         $this->url('html/test_element_selection.html');
@@ -114,6 +128,62 @@ class Extensions_Selenium2TestCaseTest extends PHPUnit_Extensions_Selenium2TestC
         $this->assertEquals('The right div', $element->text());
     }
 
+    public function testElementsKnowTheirTagName()
+    {
+        $this->url('html/test_element_selection.html');
+        $element = $this->byClassName('theDivClass');
+        $this->assertEquals('div', $element->name());
+    }
+
+    public function testFormElementsKnowIfTheyAreEnabled()
+    {
+        $this->url('html/test_form_elements.html');
+        $this->assertTrue($this->byId('enabledInput')->enabled());
+        $this->assertFalse($this->byId('disabledInput')->enabled());
+    }
+
+    public function testElementsKnowTheirAttributes()
+    {
+        $this->url('html/test_element_selection.html');
+        $element = $this->byId('theDivId');
+        $this->assertEquals('theDivClass', $element->attribute('class'));
+    }
+
+    public function testElementsDiscoverTheirEqualityWithOtherElements()
+    {
+        $this->url('html/test_element_selection.html');
+        $element = $this->byId('theDivId');
+        $differentElement = $this->byId('parentElement');
+        $equalElement = $this->byId('theDivId');
+        $this->assertTrue($element->equals($equalElement));
+        $this->assertFalse($element->equals($differentElement));
+    }
+
+    public function testElementsKnowWhereTheyAreInThePage()
+    {
+        $this->url('html/test_element_selection.html');
+        $element = $this->byCssSelector('body');
+        $location = $element->location();
+        $this->assertEquals(0, $location['x']);
+        $this->assertEquals(0, $location['y']);
+    }
+
+    public function testElementsKnowTheirSize()
+    {
+        $this->url('html/test_geometry.html');
+        $element = $this->byId('rectangle');
+        $size = $element->size();
+        $this->assertEquals(200, $size['width']);
+        $this->assertEquals(100, $size['height']);
+    }
+
+    public function testElementsKnowTheirCssPropertiesValues()
+    {
+        $this->url('html/test_geometry.html');
+        $element = $this->byId('colored');
+        $this->assertEquals('#0000ff', $element->css('background-color'));
+    }
+
     public function testClick()
     {
         $this->url('html/test_click_page1.html');
@@ -143,7 +213,6 @@ class Extensions_Selenium2TestCaseTest extends PHPUnit_Extensions_Selenium2TestC
         $withOnClick = $this->byId('linkWithOnclickReturnsFalse');
         $withOnClick->click();
         $this->assertEquals('Click Page 1', $this->title());
-
     }
 
     public function testClicksOnJavaScriptHref()
@@ -185,6 +254,18 @@ class Extensions_Selenium2TestCaseTest extends PHPUnit_Extensions_Selenium2TestC
         $this->clickOnElement('submitButton');
         $h2 = $this->byCssSelector('h2');
         $this->assertRegExp('/Welcome, TestUser!/', $h2->text());
+    }
+
+    /**
+     * @depends testTypingViaTheKeyboard
+     */
+    public function testTextTypedInAreasCanBeCleared()
+    {
+        $this->url('html/test_type_page1.html');
+        $usernameInput = $this->byName('username');
+        $usernameInput->value('TestUser');
+        $usernameInput->clear();
+        $this->assertEquals('', $usernameInput->value());
     }
     
     public function testTypingNonLatinText()
@@ -234,5 +315,496 @@ class Extensions_Selenium2TestCaseTest extends PHPUnit_Extensions_Selenium2TestC
         $select->selectOptionByLabel('');
         $this->assertEquals('', $select->selectedLabel());
 
+    }
+
+    public function testFormsCanBeSubmitted()
+    {
+        $this->url('html/test_submit.html');
+        $form = $this->byId('searchForm');
+        $form->submit();
+        $this->assertEquals('onsubmit called', $this->alertText());
+        $this->acceptAlert();
+
+        $box = $this->byName('okayToSubmit');
+        $box->click();
+        $box->submit();
+        $this->assertEquals('onsubmit called', $this->alertText());
+        $this->acceptAlert();
+        $this->assertEquals('form submitted', $this->alertText());
+    }
+
+    public function testCheckboxesCanBeSelectedAndDeselected()
+    {
+        $this->markTestIncomplete("Flaky: fails on clicking in some browsers.");
+        $this->url('html/test_check_uncheck.html');
+        $beans = $this->byId('option-beans');
+        $butter = $this->byId('option-butter');
+
+        $this->assertTrue($beans->selected());
+        $this->assertFalse($butter->selected());
+
+        $butter->click();
+        $this->assertTrue($butter->selected());
+        $butter->click();
+        $this->assertFalse($butter->selected());
+    }
+
+    public function testRadioBoxesCanBeSelected()
+    {
+        $this->url('html/test_check_uncheck.html');
+        $spud = $this->byId('base-spud');
+        $rice = $this->byId('base-rice');
+
+        $this->assertTrue($spud->selected());
+        $this->assertFalse($rice->selected());
+
+        $rice->click();
+        $this->assertFalse($spud->selected());
+        $this->assertTrue($rice->selected());
+
+        $spud->click();
+        $this->assertTrue($spud->selected());
+        $this->assertFalse($rice->selected());
+    }
+
+    public function testWaitPeriodsAreImplicitInSelection()
+    {
+        $this->timeouts()->implicitWait(10000);
+        $this->url('html/test_delayed_element.html');
+        $element = $this->byId('createElementButton')->click();
+        $div = $this->byXPath("//div[@id='delayedDiv']");
+        $this->assertEquals('Delayed div.', $div->text());
+    }
+
+    public function testTimeoutsCanBeDefinedForAsynchronousExecutionOfJavaScript()
+    {
+        $this->url('html/test_open.html');
+        $this->timeouts()->asyncScript(10000);
+        $script = 'var callback = arguments[0];
+                   window.setTimeout(function() {
+                       callback(document.title);
+                   }, 1000);
+        ';
+        $result = $this->executeAsync(array(
+            'script' => $script,
+            'args'   => array()
+        ));
+        $this->assertEquals("Test open", $result);
+    }
+
+    public function testTheBackAndForwardButtonCanBeUsedToNavigate()
+    {
+        $this->url('html/test_click_page1.html');
+        $this->assertEquals('Click Page 1', $this->title());
+
+        $this->clickOnElement('link');
+        $this->assertEquals('Click Page Target', $this->title());
+
+        $this->back();
+        $this->assertEquals('Click Page 1', $this->title());
+
+        $this->forward();
+        $this->assertEquals('Click Page Target', $this->title());
+    }
+
+    public function testThePageCanBeRefreshed()
+    {
+        $this->url('html/test_page.slow.html');
+        $this->assertStringEndsWith('html/test_page.slow.html', $this->url());
+        $this->assertEquals('Slow Loading Page', $this->title());
+
+        $this->clickOnElement('changeSpan');
+        $this->assertEquals('Changed the text', $this->byId('theSpan')->text());
+        $this->refresh();
+        $this->assertEquals('This is a slow-loading page.', $this->byId('theSpan')->text());
+
+        $this->clickOnElement('changeSpan');
+        $this->assertEquals('Changed the text', $this->byId('theSpan')->text());
+    }
+
+    public function testLinkEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $eventLog = $this->byId('eventlog');
+        $this->assertEquals('', $eventLog->value());
+        $this->clickOnElement('theLink');
+        $this->assertContains('{focus(theLink)} {click(theLink)}', $eventLog->value());
+        $this->assertEquals('link clicked', $this->alertText());
+        $this->acceptAlert();
+    }
+
+    public function testButtonEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $eventLog = $this->byId('eventlog');
+        $this->assertEquals('', $eventLog->value());
+        $this->clickOnElement('theButton');
+        $this->assertContains('{focus(theButton)} {click(theButton)}', $eventLog->value());
+        $eventLog->clear();
+
+        $this->clickOnElement('theSubmit');
+        $this->assertContains('{focus(theSubmit)} {click(theSubmit)} {submit}', $eventLog->value());
+    }
+
+    public function testSelectEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $select = $this->select($this->byId('theSelect'));
+        $eventLog = $this->byId('eventlog');
+        $this->assertEquals('', $select->selectedValue());
+        $this->assertEquals('', $eventLog->value());
+
+        $select->selectOptionByLabel('First Option');
+        $this->assertEquals('option1', $select->selectedValue());
+        $this->assertContains('{focus(theSelect)}', $eventLog->value());
+        $this->assertContains('{change(theSelect)}', $eventLog->value());
+
+        $eventLog->clear();
+        $select->selectOptionByLabel('First Option');
+        $this->assertEquals('option1', $select->selectedValue());
+        $this->assertContains('{focus(theSelect)}', $eventLog->value());
+
+        $this->markTestIncomplete('Why the change event is launched?');
+        $this->assertNotContains('{change(theSelect)}', $eventLog->value());
+    }
+    
+    public function testRadioEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $first = $this->byId('theRadio1');
+        $second = $this->byId('theRadio2');
+        $eventLog = $this->byId('eventlog');
+
+        $this->assertFalse($first->selected());
+        $this->assertFalse($second->selected());
+        $this->assertEquals('', $eventLog->value());
+
+        $first->click();
+        $this->assertContains('{focus(theRadio1)}', $eventLog->value());
+        $this->assertContains('{click(theRadio1)}', $eventLog->value());
+        $this->assertContains('{change(theRadio1)}', $eventLog->value());
+        $this->assertNotContains('theRadio2', $eventLog->value());
+
+        $eventLog->clear();
+        $first->click();
+        $this->assertContains('{focus(theRadio1)}', $eventLog->value());
+        $this->assertContains('{click(theRadio1)}', $eventLog->value());
+    }
+
+    public function testCheckboxEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $checkbox = $this->byId('theCheckbox');
+        $eventLog = $this->byId('eventlog');
+        $this->assertFalse($checkbox->selected());
+        $this->assertEquals('', $eventLog->value());
+
+        $checkbox->click();
+        $this->assertContains('{focus(theCheckbox)}', $eventLog->value());
+        $this->assertContains('{click(theCheckbox)}', $eventLog->value());
+        $this->assertContains('{change(theCheckbox)}', $eventLog->value());
+
+        $eventLog->clear();
+        $checkbox->click();
+        $this->assertContains('{focus(theCheckbox)}', $eventLog->value());
+        $this->assertContains('{click(theCheckbox)}', $eventLog->value());
+        $this->assertContains('{change(theCheckbox)}', $eventLog->value());
+    }
+
+    public function testTextEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $textBox = $this->byId('theTextbox');
+        $eventLog = $this->byId('eventlog');
+        $this->assertEquals('', $textBox->value());
+        $this->assertEquals('', $eventLog->value());
+
+        $textBox->value('first value');
+        $this->assertContains('{focus(theTextbox)}', $eventLog->value());
+    }
+
+    public function testMouseEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $this->clickOnElement('theTextbox');
+        $this->clickOnElement('theButton');
+        $eventLog = $this->byId('eventlog');
+        $this->assertContains('{mouseover(theTextbox)}', $eventLog->value()); 
+        $this->assertContains('{mousedown(theButton)}', $eventLog->value()); 
+        $this->assertContains('{mouseover(theTextbox)}', $eventLog->value()); 
+        $this->assertContains('{mousedown(theButton)}', $eventLog->value()); 
+    }
+
+    public function testKeyEventsAreGenerated()
+    {
+        $this->url('html/test_form_events.html');
+        $this->byId('theTextbox')->value('t');
+
+        $this->assertContains('{focus(theTextbox)}'
+                           . ' {keydown(theTextbox - 84)}'
+                           . ' {keypress(theTextbox)}'
+                           . ' {keyup(theTextbox - 84)}', 
+                               $this->byId('eventlog')->value());
+    }
+
+    public function testConfirmationsAreHandledAsAlerts()
+    {
+        $this->url('html/test_confirm.html');
+        $this->clickOnElement('confirmAndLeave');
+        $this->assertEquals('You are about to go to a dummy page.', $this->alertText());
+        $this->dismissAlert();
+        $this->assertEquals('Test Confirm', $this->title());
+
+        $this->clickOnElement('confirmAndLeave');
+        $this->assertEquals('You are about to go to a dummy page.', $this->alertText());
+        $this->acceptAlert();
+        $this->assertEquals('Dummy Page', $this->title());
+    }
+
+    public function testPromptsCanBeAnsweredByTyping()
+    {
+        $this->url('html/test_prompt.html');
+
+        $this->clickOnElement('promptAndLeave');
+        $this->assertEquals("Type 'yes' and click OK", $this->alertText());
+        $this->dismissAlert();
+        $this->assertEquals('Test Prompt', $this->title());
+
+        $this->clickOnElement('promptAndLeave');
+        $this->alertText('yes');
+        $this->acceptAlert();
+        $this->assertEquals('Dummy Page', $this->title());
+    }
+
+    public function testInvisibleElementsDoNotHaveADisplayedText()
+    {
+        $this->url('html/test_visibility.html');
+        $this->assertEquals('A visible paragraph', $this->byId('visibleParagraph')->text());
+        $this->assertTrue($this->byId('visibleParagraph')->displayed());
+
+        $this->assertEquals('', $this->byId('hiddenParagraph')->text());
+        $this->assertFalse($this->byId('hiddenParagraph')->displayed());
+
+        $this->assertEquals('', $this->byId('suppressedParagraph')->text());
+        $this->assertEquals('', $this->byId('classSuppressedParagraph')->text());
+        $this->assertEquals('', $this->byId('jsClassSuppressedParagraph')->text());
+        $this->assertEquals('', $this->byId('hiddenSubElement')->text());
+        $this->assertEquals('sub-element that is explicitly visible', $this->byId('visibleSubElement')->text());
+        $this->assertEquals('', $this->byId('suppressedSubElement')->text());
+        $this->assertEquals('', $this->byId('jsHiddenParagraph')->text());
+    }
+
+    public function testScreenshotsCanBeTakenAtAnyMoment()
+    {
+        $this->url('html/test_open.html');
+        $screenshot = $this->currentScreenshot();
+        $this->assertTrue(is_string($screenshot));
+        $this->assertTrue(strlen($screenshot) > 0);
+        $this->markTestIncomplete('By guaranteeing the size of the window, we could add a deterministic assertion for the image.');
+    }
+
+    public function testACurrentWindowHandleAlwaysExist()
+    {
+        $this->url('html/test_open.html');
+        $window  = $this->windowHandle();
+        $this->assertTrue(is_string($window));
+        $this->assertTrue(strlen($window) > 0);
+        $allHandles  = $this->windowHandles();
+        $this->assertEquals(array('0' => $window), $allHandles);
+    }
+
+    public function testThePageSourceCanBeRead()
+    {
+        $this->url('html/test_open.html');
+        $source = $this->source();
+        $this->assertStringStartsWith('<!--', $source);
+        $this->assertContains('<body>', $source);
+        $this->assertStringEndsWith('</html>', $source);
+    }
+
+    public function testJavaScriptCanBeEmbeddedForExecution()
+    {
+        $this->url('html/test_open.html');
+        $script = 'return document.title;';
+        $result = $this->execute(array(
+            'script' => $script,
+            'args'   => array()
+        ));
+        $this->assertEquals("Test open", $result);
+    }
+
+    public function testAsynchronousJavaScriptCanBeEmbeddedForExecution()
+    {
+        $this->url('html/test_open.html');
+        $script = 'var callback = arguments[0]; callback(document.title);';
+        $result = $this->executeAsync(array(
+            'script' => $script,
+            'args'   => array()
+        ));
+        $this->assertEquals("Test open", $result);
+    }
+
+    public function testInputMethodFrameworksCanBeManagedViaTheApi()
+    {
+        $this->markTestIncomplete("Need to create an IME object.");
+        $this->ime()->availableEngines();
+        $this->ime()->activeEngine();
+        $this->ime()->activated();
+        $this->ime()->deactive();
+        $this->ime()->activate();
+    }
+
+    public function testDifferentFramesFromTheMainOneCanGetFocus()
+    {
+        $this->url('html/test_frames.html');
+        $this->frame('my_iframe_id');
+        $this->assertEquals('This is a test of the open command.', $this->byCssSelector('body')->text());
+
+        $this->frame(null);
+        $this->assertContains('This page contains frames.', $this->byCssSelector('body')->text());
+    }
+
+    public function testDifferentWindowsCanBeFocusedOnDuringATest()
+    {
+        $this->url('html/test_select_window.html');
+        $this->byId('popupPage')->click();
+
+        $this->window('myPopupWindow');
+        $this->assertEquals('Select Window Popup', $this->title());
+
+        $this->window('');
+        $this->assertEquals('Select Window Base', $this->title());
+
+        $this->window('myPopupWindow');
+        $this->byId('closePage')->click();
+    }
+
+    public function testWindowsCanBeClosed()
+    {
+        $this->url('html/test_select_window.html');
+        $this->byId('popupPage')->click();
+        $this->markTestIncomplete();
+        $this->window(/* which API for a DELETE request? */);
+    }
+
+    public function testWindowsCanBeManipulatedAsAnObject()
+    {
+        $this->url('html/test_select_window.html');
+        $this->byId('popupPage')->click();
+
+        $this->window('myPopupWindow');
+        $popup = $this->currentWindow();
+        $this->assertTrue($popup instanceof PHPUnit_Extensions_Selenium2TestCase_Window);
+        $popup->size(array('width' => 100, 'height' => 200));
+        $size = $popup->size();
+        $this->assertEquals(100, $size['width']);
+        $this->assertEquals(200, $size['height']);
+
+        $this->markTestIncomplete("We should wait for the window to be moved. How? With aynshcrnous javascript specific for this test");
+        $popup->position(array('x' => 300, 'y' => 400));
+        $position = $popup->position();
+        $this->assertEquals(300, $position['x']);
+        $this->assertEquals(400, $position['y']);
+        // method on Window; interface Closeable, better name?
+        $popup->close();
+
+        // delete when automated garbage collection of windows is available
+        $this->window('myPopupWindow');
+        $this->byId('closePage')->click();
+        $this->window('');
+    }
+
+    public function testCookiesCanBeSetAndRead()
+    {
+        $this->markTestIncomplete();
+        $this->cookie(array('cookie' => array(/* keys? */))); 
+        $this->cookie(); // returns array
+        $this->cookie('name'); // Returns single one
+    }
+
+    public function testCookiesCanBeDeleted()
+    {
+        $this->markTestIncomplete('Which API to use for deleting session/cookie?');
+    }
+
+    public function testTheBrowsersOrientationCanBeModified()
+    {
+        $this->markTestIncomplete('Which browsers support this functionality?');
+        $this->orientation('LANDSCAPE');
+        $this->orientation('PORTRAIT');
+        $this->orientation();
+    }
+
+    public function testTheMouseCanBeMovedToAKnownPosition()
+    {
+        $this->markTestIncomplete();
+        $this->moveTo(array(
+            'element' => 'id', // or Element object
+            'xoffset' => 0,
+            'yofsset' => 0
+        ));
+        $this->click();
+    }
+
+    public function testMouseButtonsCanBeHeld()
+    {
+        $this->markTestIncomplete();
+        $this->moveTo(array(
+            'element' => 'id', // or Element object
+            'xoffset' => 0,
+            'yofsset' => 0
+        ));
+        $this->buttonDown();
+        $this->buttonUp();
+    }
+
+    public function testMouseButtonsCanBeClickedMultipleTimes()
+    {
+        $this->markTestIncomplete();
+        $this->moveTo(array(
+            'element' => 'id', // or Element object
+            'xoffset' => 0,
+            'yofsset' => 0
+        ));
+        $this->doubleClick();
+    }
+
+    public function testFingersCanBeMovedAndPressedOnTheScreen()
+    {
+        $this->markTestIncomplete('Which browser supports these events?');
+        $this->touch()->click();
+        $this->touch()->down();
+        $this->touch()->up();
+        $this->touch()->move();
+        $this->touch()->scroll();
+        $this->touch()->doubleClick();
+        $this->touch()->longClick();
+        $this->touch()->flick();
+    }
+
+    public function testGeoLocationIsAccessible()
+    {
+        $this->markTestIncomplete();
+        $this->location();
+    }
+
+    public function testTheBrowserLocalStorageIsAccessible()
+    {
+        $this->markTestIncomplete();
+        $this->localStorage(); // all keys
+        $this->localStorage()->key; // gets a value
+        $this->localStorage()->key = 2; // sets a value
+        $this->localStorage()->size(); // a value
+        // how to clear the storage?
+    }
+
+    public function testTheBrowserSessionStorageIsAccessible()
+    {
+        $this->markTestIncomplete();
+        $this->sessionStorage(); // all keys
+        $this->sessionStorage()->key; // gets a value
+        $this->sessionStorage()->key = 2; // sets a value
+        $this->sessionStorage()->size(); // a value
+        // how to clear the storage?
     }
 }

@@ -953,14 +953,14 @@ class PHPUnit_Extensions_SeleniumTestCase_Driver
         $response = curl_exec($curl);
         $info     = curl_getinfo($curl);
 
-        curl_close($curl);
-
-        if (strstr($response, 'ERROR: ') == $response) {
-            throw new RuntimeException($response);
+        if (!$response) {
+            throw new RuntimeException("CURL error while accessing the Selenium Server at '$url': " . curl_error($curl));
         }
 
-        if (!$response) {
-            throw new RuntimeException(curl_error($curl));
+        curl_close($curl);
+
+        if (!preg_match('/^OK/', $response)) {
+            throw new RuntimeException("Invalid response while accessing the Selenium Server at '$url': " . $response);
         }
 
         if ($info['http_code'] != 200) {

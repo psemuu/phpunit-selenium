@@ -3,6 +3,32 @@ PHPUnit_Selenium 1.2
 
 This is the list of changes for the PHPUnit_Selenium 1.2 release series.
 
+PHPUnit_Selenium 1.2.5
+----------------------
+
+* Added Window object accessible via $this->currentWindow().
+* Implemented $this->timeouts()->asyncScript().
+* Fixed #105: $browsers static property.
+
+PHPUnit_Selenium 1.2.4
+----------------------
+
+* Implemented $element->size().
+* Implemented $element->location().
+* Implemented $element->name(), $element->attribute(), $element->equals(), $element->enabled(), $element->displayed(), $element->css().
+* Implemented $this->elements() for multiple element selection in the whole page.
+* Implemented $this->frame() to switch focus between frames on a page.
+* Implemented $this->execute() and $this->executeAsync() for executing arbitrary JavaScript.
+* Implemented $this->windowHandle(), $this->windowHandles and $this->source().
+* Implemented $this->alertText("...") for answering prompts.
+* Supporting form submit (also via children elements).
+* Supporting radio boxes.
+* Supporting implicit waits on $this->by*().
+* Supporting back and forward buttons via $this->back() and $this->forward().
+* Supporting refresh of pages via $this->refresh().
+* Supporting $element->clear().
+* Correctly marking Selenium 1 tests as skipped when server is not running.
+
 PHPUnit_Selenium 1.2.3
 ----------------------
 
