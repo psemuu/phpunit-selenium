@@ -39,11 +39,11 @@
  * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.1.2
  */
 
 /**
- * Gets or sets the current URL of the window.
+ * Tests for PHPUnit_Extensions_SeleniumTestCase.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
@@ -53,25 +53,57 @@
  * @link       http://www.phpunit.de/
  * @since      Class available since Release 1.2.0
  */
-class PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Url
-    extends PHPUnit_Extensions_Selenium2TestCase_Command
+class Extensions_Selenium2TestCaseFailuresTest extends PHPUnit_Extensions_Selenium2TestCase
 {
-    public function __construct($url, $commandUrl, PHPUnit_Extensions_Selenium2TestCase_URL $baseUrl)
+    public function setUp()
     {
-        if ($url !== NULL) {
-            $absoluteLocation = $baseUrl->jump($url)->getValue();
-            $jsonParameters = array('url' => $absoluteLocation);
-        } else {
-            $jsonParameters = NULL;
+        if (version_compare(phpversion(), '5.3.0', '<')) {
+            $this->markTestSkipped('Functionality available only under PHP 5.3.');
         }
-        parent::__construct($jsonParameters, $commandUrl);
+        $this->setHost(PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_HOST);
+        $this->setPort((int)PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_PORT);
+        $this->setBrowser(PHPUNIT_TESTSUITE_EXTENSION_SELENIUM2_BROWSER);
+        if (!defined('PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_TESTS_URL')) {
+            $this->markTestSkipped("You must serve the selenium-1-tests folder from an HTTP server and configure the PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_TESTS_URL constant accordingly.");
+        }
+        $this->setBrowserUrl(PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_TESTS_URL);
     }
 
-    public function httpMethod()
+    /**
+     * @expectedException BadMethodCallException
+     */
+    public function testInexistentCommandCausesTheTestToFail()
     {
-        if ($this->jsonParameters) {
-            return 'POST';
+        $this->inexistentSessionCommand();
+    }
+
+    /**
+     * @expectedException DomainException
+     */
+    public function testExceptionsAreReThrownOnNotSuccessfulTests()
+    {
+        $this->onNotSuccessfulTest(new DomainException);
+    }
+
+    /**
+     * @expectedException RuntimeException
+     */
+    public function testInexistentElementCausesTheTestToFail()
+    {
+        $this->url('html/test_open.html');
+        $this->byId('notExistent');
+    }
+
+    public function testStaleElementsCannotBeAccessed()
+    {
+        $this->url('html/test_element_selection.html');
+        $div = $this->byId('theDivId');
+        $this->url('html/test_element_selection.html');
+        try {
+            $div->text();
+            $this->fail('The element shouldn\'t be accessible.');
+        } catch (RuntimeException $e) {
+            $this->assertContains('http://seleniumhq.org/exceptions/stale_element_reference.html', $e->getMessage());
         }
-        return 'GET';
     }
 }

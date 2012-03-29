@@ -391,100 +391,7 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
      */
     public static function suite($className)
     {
-        $suite = new PHPUnit_Extensions_SeleniumTestSuite();
-        $suite->setName($className);
-
-        $class            = new ReflectionClass($className);
-        $classGroups      = PHPUnit_Util_Test::getGroups($className);
-        $staticProperties = $class->getStaticProperties();
-
-        // Create tests from Selenese/HTML files.
-        if (isset($staticProperties['seleneseDirectory']) &&
-            is_dir($staticProperties['seleneseDirectory'])) {
-            $files = array_merge(
-              self::getSeleneseFiles($staticProperties['seleneseDirectory'], '.htm'),
-              self::getSeleneseFiles($staticProperties['seleneseDirectory'], '.html')
-            );
-
-            // Create tests from Selenese/HTML files for multiple browsers.
-            if (!empty($staticProperties['browsers'])) {
-                foreach ($staticProperties['browsers'] as $browser) {
-                    $browserSuite = new PHPUnit_Framework_TestSuite;
-                    $browserSuite->setName($className . ': ' . $browser['name']);
-
-                    foreach ($files as $file) {
-                        self::addConfiguredTestTo($browserSuite,
-                          new $className($file, array(), '', $browser),
-                          $classGroups
-                        );
-                    }
-
-                    $suite->addTest($browserSuite);
-                }
-            }
-
-            // Create tests from Selenese/HTML files for single browser.
-            else {
-                foreach ($files as $file) {
-                    self::addConfiguredTestTo($suite,
-                                              new $className($file),
-                                              $classGroups);
-                }
-            }
-        }
-
-        // Create tests from test methods for multiple browsers.
-        if (!empty($staticProperties['browsers'])) {
-            foreach ($staticProperties['browsers'] as $browser) {
-                $browserSuite = new PHPUnit_Framework_TestSuite;
-                $browserSuite->setName($className . ': ' . $browser['name']);
-
-                foreach ($class->getMethods() as $method) {
-                    if (PHPUnit_Framework_TestSuite::isPublicTestMethod($method)) {
-                        $name   = $method->getName();
-
-                        $test = PHPUnit_Framework_TestSuite::createTest($class, $name);
-                        if ($test instanceof PHPUnit_Framework_TestCase) {
-                            $test->setupSpecificBrowser($browser);
-                            $groups = PHPUnit_Util_Test::getGroups($className, $name);
-                            self::addConfiguredTestTo($browserSuite, $test, $groups);
-                        } else {
-                            $browserSuite->addTest($test);
-                        }
-                    }
-                }
-
-                $suite->addTest($browserSuite);
-            }
-        }
-
-        // Create tests from test methods for single browser.
-        else {
-            foreach ($class->getMethods() as $method) {
-                if (PHPUnit_Framework_TestSuite::isPublicTestMethod($method)) {
-                    $name   = $method->getName();
-
-                    $test = PHPUnit_Framework_TestSuite::createTest($class, $name);
-                    if ($test instanceof PHPUnit_Framework_TestCase) {
-                        $groups = PHPUnit_Util_Test::getGroups($className, $name);
-                        self::addConfiguredTestTo($suite, $test, $groups);
-                    } else {
-                        $suite->addTest($test);
-                    }
-                }
-            }
-        }
-
-        return $suite;
-    }
-
-    private static function addConfiguredTestTo(PHPUnit_Framework_TestSuite $suite, PHPUnit_Framework_TestCase $test, $classGroups)
-    {
-        list ($methodName, ) = explode(' ', $test->getName());
-        $test->setDependencies(
-              PHPUnit_Util_Test::getDependencies(get_class($test), $methodName)
-        );
-        $suite->addTest($test, $classGroups);
+        return PHPUnit_Extensions_SeleniumTestSuite::fromTestCaseClass($className);
     }
 
     /**
@@ -603,15 +510,18 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
 
     public function skipWithNoServerRunning()
     {
-        $this->serverRunning = @fsockopen($this->drivers[0]->getHost(), $this->drivers[0]->getPort(), $errno, $errstr, $this->serverConnectionTimeOut);
-        if (!$this->serverRunning) {
+        try {
+            fsockopen($this->drivers[0]->getHost(), $this->drivers[0]->getPort(), $errno, $errstr, $this->serverConnectionTimeOut);
+            $this->serverRunning = TRUE;
+        } catch (PHPUnit_Framework_Error_Warning $e) {
             $this->markTestSkipped(
-              sprintf(
-                'Could not connect to the Selenium Server on %s:%d.',
-                $this->drivers[0]->getHost(),
-                $this->drivers[0]->getPort()
-              )
+                sprintf(
+                    'Could not connect to the Selenium Server on %s:%d.',
+                    $this->drivers[0]->getHost(),
+                    $this->drivers[0]->getPort()
+                )
             );
+            $this->serverRunning = FALSE;
         }
     }
 
@@ -620,8 +530,8 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
      */
     protected function prepareTestSession()
     {
-        $testCaseClass = get_class($this);
-        if ($testCaseClass::$browsers) {
+        $testCaseClassVars = get_class_vars(get_class($this));
+        if ($testCaseClassVars['browsers']) {
             return $this->start();
         }
         if (self::$shareSession && self::$sessionId !== NULL) {
@@ -1049,19 +959,23 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
             throw $e;
         }
 
-        $this->restoreSessionStateAfterFailedTest();
+        try {
+            $this->restoreSessionStateAfterFailedTest();
 
-        $buffer  = 'Current URL: ' . $this->drivers[0]->getLocation() .
-                   "\n";
+            $buffer  = 'Current URL: ' . $this->drivers[0]->getLocation() .
+                       "\n";
 
-        if ($this->captureScreenshotOnFailure) {
-            $screenshotInfo = $this->takeScreenshot();
-            if ($screenshotInfo != '') {
-                $buffer .= $screenshotInfo;
+            if ($this->captureScreenshotOnFailure) {
+                $screenshotInfo = $this->takeScreenshot();
+                if ($screenshotInfo != '') {
+                    $buffer .= $screenshotInfo;
+                }
             }
-        }
 
-        $this->stopSession();
+            $this->stopSession();
+        } catch (Exception $another) {
+            $buffer = "Issues while capturing the screenshot:\n" . $another->getMessage();
+        }
 
         if ($e instanceof PHPUnit_Framework_ExpectationFailedException
          && is_object($e->getComparisonFailure())) {
@@ -1095,7 +1009,6 @@ abstract class PHPUnit_Extensions_SeleniumTestCase extends PHPUnit_Framework_Tes
 
     private function restoreSessionStateAfterFailedTest()
     {
-        $this->selectWindow('null');
         self::$sessionId = NULL;
     }
 

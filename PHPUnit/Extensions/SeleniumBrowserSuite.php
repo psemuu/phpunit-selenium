@@ -39,11 +39,12 @@
  * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.2.6
  */
 
 /**
- * Gets or sets the current URL of the window.
+ * TestSuite class for a set of tests from a single Testcase Class 
+ * executed with a particular browser.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
@@ -51,27 +52,41 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.6
  */
-class PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Url
-    extends PHPUnit_Extensions_Selenium2TestCase_Command
+class PHPUnit_Extensions_SeleniumBrowserSuite extends PHPUnit_Framework_TestSuite
 {
-    public function __construct($url, $commandUrl, PHPUnit_Extensions_Selenium2TestCase_URL $baseUrl)
+    /**
+     * Overriding the default: Selenium suites are always built from a TestCase class.
+     * @var boolean
+     */
+    protected $testCase = TRUE;
+
+    public function addTestMethod(ReflectionClass $class, ReflectionMethod $method)
     {
-        if ($url !== NULL) {
-            $absoluteLocation = $baseUrl->jump($url)->getValue();
-            $jsonParameters = array('url' => $absoluteLocation);
-        } else {
-            $jsonParameters = NULL;
-        }
-        parent::__construct($jsonParameters, $commandUrl);
+        return parent::addTestMethod($class, $method);
     }
 
-    public function httpMethod()
+    public static function fromClassAndBrowser($className, array $browser)
     {
-        if ($this->jsonParameters) {
-            return 'POST';
+        $browserSuite = new self();
+        $browserSuite->setName($className . ': ' . $browser['name']);
+        return $browserSuite;
+    }
+
+    public function setupSpecificBrowser(array $browser)
+    {
+        $this->browserOnAllTests($this, $browser);
+    }
+
+    private function browserOnAllTests(PHPUnit_Framework_TestSuite $suite, array $browser)
+    {
+        foreach ($suite->tests() as $test) {
+            if ($test instanceof PHPUnit_Framework_TestSuite) {
+                $this->browserOnAllTests($test, $browser);
+            } else {
+                $test->setupSpecificBrowser($browser);
+            }
         }
-        return 'GET';
     }
 }

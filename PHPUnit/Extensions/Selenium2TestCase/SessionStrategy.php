@@ -39,11 +39,11 @@
  * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.1.2
+ * @since      File available since Release 1.2.6
  */
 
 /**
- * Tests for PHPUnit_Extensions_SeleniumTestCase.
+ * Specifies how to create Session objects for running tests.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
@@ -51,43 +51,19 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.6
  */
-class Extensions_Selenium2TestCaseFailuresTest extends PHPUnit_Extensions_Selenium2TestCase
+interface PHPUnit_Extensions_Selenium2TestCase_SessionStrategy
 {
-    public function setUp()
-    {
-        $this->setHost(PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_HOST);
-        $this->setPort((int)PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_PORT);
-        $this->setBrowser(PHPUNIT_TESTSUITE_EXTENSION_SELENIUM2_BROWSER);
-        if (!defined('PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_TESTS_URL')) {
-            $this->markTestSkipped("You must serve the selenium-1-tests folder from an HTTP server and configure the PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_TESTS_URL constant accordingly.");
-        }
-        $this->setBrowserUrl(PHPUNIT_TESTSUITE_EXTENSION_SELENIUM_TESTS_URL);
-    }
-
     /**
-     * @expectedException BadMethodCallException
+     * @param array $parameters 'host' => Selenium Server machine
+                                'port' => Selenium Server port
+                                'browser' => a browser name 
+     *                          'browserUrl' => base URL to use during the test
      */
-    public function testInexistentCommandCausesTheTestToFail()
-    {
-        $this->inexistentSessionCommand();
-    }
+    public function session(array $parameters);
 
-    /**
-     * @expectedException DomainException
-     */
-    public function testExceptionsAreReThrownOnNotSuccessfulTests()
-    {
-        $this->onNotSuccessfulTest(new DomainException);
-    }
+    public function notSuccessfulTest();
 
-    /**
-     * @expectedException InvalidArgumentException
-     */
-    public function testInexistentElementCausesTheTestToFail()
-    {
-        $this->url('html/test_open.html');
-        $this->byId('notExistent');
-    }
+    public function endOfTest(PHPUnit_Extensions_Selenium2TestCase_Session $session);
 }

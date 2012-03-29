@@ -39,11 +39,11 @@
  * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.2.6
  */
 
 /**
- * Gets or sets the current URL of the window.
+ * Produces a new Session object shared for each test.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
@@ -51,27 +51,25 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.6
  */
-class PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Url
-    extends PHPUnit_Extensions_Selenium2TestCase_Command
+class PHPUnit_Extensions_Selenium2TestCase_SessionStrategy_Isolated
+    implements PHPUnit_Extensions_Selenium2TestCase_SessionStrategy
 {
-    public function __construct($url, $commandUrl, PHPUnit_Extensions_Selenium2TestCase_URL $baseUrl)
+    public function session(array $parameters)
     {
-        if ($url !== NULL) {
-            $absoluteLocation = $baseUrl->jump($url)->getValue();
-            $jsonParameters = array('url' => $absoluteLocation);
-        } else {
-            $jsonParameters = NULL;
-        }
-        parent::__construct($jsonParameters, $commandUrl);
+        $seleniumServerUrl = PHPUnit_Extensions_Selenium2TestCase_URL::fromHostAndPort($parameters['host'], $parameters['port']);
+        $driver = new PHPUnit_Extensions_Selenium2TestCase_Driver($seleniumServerUrl);
+        $session = $driver->startSession($parameters['browser'], $parameters['browserUrl']);
+        return $session;
     }
 
-    public function httpMethod()
+    public function notSuccessfulTest()
     {
-        if ($this->jsonParameters) {
-            return 'POST';
-        }
-        return 'GET';
+    }
+
+    public function endOfTest(PHPUnit_Extensions_Selenium2TestCase_Session $session)
+    {
+        $session->stop();
     }
 }

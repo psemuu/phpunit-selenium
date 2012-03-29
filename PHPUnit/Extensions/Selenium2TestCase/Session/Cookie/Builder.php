@@ -39,11 +39,11 @@
  * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.4
+ * @since      File available since Release 1.2.6
  */
 
 /**
- * Tests for PHPUnit_Extensions_SeleniumTestCase.
+ * Adds a cookie.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
@@ -51,28 +51,79 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.4
+ * @since      Class available since Release 1.2.6
  */
-class Extensions_SeleniumTestCaseMultipleBrowsersTest extends PHPUnit_Extensions_SeleniumTestCase
+class PHPUnit_Extensions_Selenium2TestCase_Session_Cookie_Builder
 {
-    public static $browsers = array(
-        array(
-            'name'    => 'Firefox on Linux',
-            'browser' => '*firefox',
-            'host'    => 'localhost',
-            'port'    => 4444
-        )
-    );
+    private $name;
+    private $value;
+    private $path;
+    private $domain;
+    private $secure = FALSE;
+    private $expiry;
 
-    public function setUp()
+    public function __construct($cookieFacade, $name, $value)
     {
-        $this->setBrowserUrl('http://localhost:8080/');
+        $this->cookieFacade = $cookieFacade;
+        $this->name = $name;
+        $this->value = $value;
     }
 
-    public function testSessionIsLaunchedCorrectly()
+    /**
+     * @param string
+     * @return PHPUnit_Extensions_Selenium2TestCase_Session_Cookie_Builder
+     */
+    public function path($path)
     {
-        $this->open('html/test_open.html');
-        $this->assertStringEndsWith('html/test_open.html', $this->getLocation());
-        $this->assertEquals('This is a test of the open command.', $this->getBodyText());
+        $this->path = $path;
+        return $this;
+    }
+
+    /**
+     * @param string
+     * @return PHPUnit_Extensions_Selenium2TestCase_Session_Cookie_Builder
+     */
+    public function domain($domain)
+    {
+        $this->domain = $domain;
+        return $this;
+    }
+
+    /**
+     * @param boolean
+     * @return PHPUnit_Extensions_Selenium2TestCase_Session_Cookie_Builder
+     */
+    public function secure($secure)
+    {
+        $this->secure = $secure;
+        return $this;
+    }
+
+    /**
+     * @param integer
+     * @return PHPUnit_Extensions_Selenium2TestCase_Session_Cookie_Builder
+     */
+    public function expiry($expiry)
+    {
+        $this->expiry = $expiry;
+        return $this;
+    }
+
+    /**
+     * @return void
+     */
+    public function set()
+    {
+        $cookieData = array(
+            'name' => $this->name,
+            'value' => $this->value,
+            'secure' => $this->secure,
+        );
+        foreach (array('path', 'domain', 'expiry') as $parameter) {
+            if ($this->$parameter !== NULL) {
+                $cookieData[$parameter] = $this->$parameter;
+            }
+        }
+        $this->cookieFacade->postCookie($cookieData);
     }
 }

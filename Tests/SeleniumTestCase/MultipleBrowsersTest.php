@@ -2,7 +2,7 @@
 /**
  * PHPUnit
  *
- * Copyright (c) 2010-2011, Sebastian Bergmann <sb@sebastian-bergmann.de>.
+ * Copyright (c) 2010-2012, Sebastian Bergmann <sb@sebastian-bergmann.de>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,42 +36,59 @@
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
- * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @link       http://www.phpunit.de/
- * @since      File available since Release 1.2.0
+ * @since      File available since Release 1.2.4
  */
 
 /**
- * Gets or sets the current URL of the window.
+ * Tests for PHPUnit_Extensions_SeleniumTestCase.
  *
  * @package    PHPUnit_Selenium
  * @author     Giorgio Sironi <giorgio.sironi@asp-poli.it>
- * @copyright  2010-2011 Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @copyright  2010-2012 Sebastian Bergmann <sb@sebastian-bergmann.de>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  * @version    Release: @package_version@
  * @link       http://www.phpunit.de/
- * @since      Class available since Release 1.2.0
+ * @since      Class available since Release 1.2.4
  */
-class PHPUnit_Extensions_Selenium2TestCase_SessionCommand_Url
-    extends PHPUnit_Extensions_Selenium2TestCase_Command
+class Extensions_SeleniumTestCaseMultipleBrowsersTest extends PHPUnit_Extensions_SeleniumTestCase
 {
-    public function __construct($url, $commandUrl, PHPUnit_Extensions_Selenium2TestCase_URL $baseUrl)
+    public static $browsers = array(
+        array(
+            'name'    => 'Firefox on Linux',
+            'browser' => '*firefox',
+            'host'    => 'localhost',
+            'port'    => 4444
+        )
+    );
+
+    public function setUp()
     {
-        if ($url !== NULL) {
-            $absoluteLocation = $baseUrl->jump($url)->getValue();
-            $jsonParameters = array('url' => $absoluteLocation);
-        } else {
-            $jsonParameters = NULL;
-        }
-        parent::__construct($jsonParameters, $commandUrl);
+        $this->setBrowserUrl('http://localhost:8080/');
     }
 
-    public function httpMethod()
+    public function testSessionIsLaunchedCorrectly()
     {
-        if ($this->jsonParameters) {
-            return 'POST';
-        }
-        return 'GET';
+        $this->open('html/test_open.html');
+        $this->assertStringEndsWith('html/test_open.html', $this->getLocation());
+    }
+
+    /**
+     * @dataProvider urls
+     */
+    public function testDataProvidersAreRecognized($url)
+    {
+        $this->open($url);
+        $this->assertStringEndsWith($url, $this->getLocation());
+        $this->assertEquals('This is a test of the open command.', $this->getBodyText());
+    }
+
+    public static function urls()
+    {
+        return array(
+            array('html/test_open.html')
+        );
     }
 }

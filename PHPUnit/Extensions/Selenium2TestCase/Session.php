@@ -62,6 +62,11 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
      */
     private $baseUrl;
 
+    /**
+     * @var boolean
+     */
+    private $stopped = FALSE;
+
     public function __construct($driver,
                                 PHPUnit_Extensions_Selenium2TestCase_URL $url,
                                 PHPUnit_Extensions_Selenium2TestCase_URL $baseUrl)
@@ -126,7 +131,11 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
      */
     public function stop()
     {
+        if ($this->stopped) {
+            return;
+        }
         $this->driver->curl('DELETE', $this->url);
+        $this->stopped = TRUE;
     }
 
     /**
@@ -196,12 +205,9 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
     /**
      * @return PHPUnit_Extensions_Selenium2TestCase_Element
      */
-    public function element(PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $jsonParameters)
+    public function element(PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $criteria)
     {
-        $response = $this->driver->curl('POST',
-                                        $this->url->descend('element'),
-                                        $jsonParameters->getArrayCopy());
-        $value = $response->getValue();
+        $value = $this->postCommand('element', $criteria);
         return PHPUnit_Extensions_Selenium2TestCase_Element::fromResponseValue($value,
                                                                                $this->url->descend('element'),
                                                                                $this->driver);
@@ -260,11 +266,26 @@ class PHPUnit_Extensions_Selenium2TestCase_Session
         return new PHPUnit_Extensions_Selenium2TestCase_Window($this->driver, $url);
     }
 
-    private function postCommand($name, PHPUnit_Extensions_Selenium2TestCase_ElementCriteria $criteria)
+    public function closeWindow()
     {
-        $response = $this->driver->curl('POST',
-                                        $this->url->addCommand($name),
-                                        $criteria->getArrayCopy());
-        return $response->getValue();
+        $this->driver->curl('DELETE', $this->url->descend('window'));
+    }
+
+    /**
+     * @return PHPUnit_Extensions_Selenium2TestCase_Session_Cookie
+     */
+    public function cookie()
+    {
+        $url = $this->url->descend('cookie');
+        return new PHPUnit_Extensions_Selenium2TestCase_Session_Cookie($this->driver, $url);
+    }
+
+    /**
+     * @return PHPUnit_Extensions_Selenium2TestCase_Session_Storage
+     */
+    public function localStorage()
+    {
+        $url = $this->url->addCommand('localStorage');
+        return new PHPUnit_Extensions_Selenium2TestCase_Session_Storage($this->driver, $url);
     }
 }
